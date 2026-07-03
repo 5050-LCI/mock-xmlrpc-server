@@ -151,8 +151,8 @@ public class TutukaServiceImpl {
 //    @Autowired
 //    private MockCardStore store;
 
-    @Autowired
-    private TransactionGenerator generator;
+//    @Autowired
+//    private TransactionGenerator generator;
 
     public Map<String, Object> linkCard(
             String terminalId,
@@ -169,6 +169,11 @@ public class TutukaServiceImpl {
             log.info("LinkCard Request. Tracking Number : {}", trackingNumber);
 
             MockCard card = MockCardStore.getInstance().getOrCreate(trackingNumber, profileNumber);
+            
+            log.info("Created Card:");
+            log.info("Tracking   : {}", card.getTrackingNumber());
+            log.info("Card Number: {}", card.getCardNumber());
+            log.info("Store Size : {}", MockCardStore.getInstance().getCards().size());
 
             response.put("resultCode", 1);
             response.put("resultText", "SUCCESS");
@@ -363,6 +368,8 @@ public class TutukaServiceImpl {
             MockCard card = MockCardStore.getInstance().getOrCreate(trackingNumber, profileNumber);
 
             List<MockTransaction> transactions;
+            
+            TransactionGenerator generator = new TransactionGenerator();
 
             if (card.getTransactions().isEmpty()) {
 
@@ -422,7 +429,7 @@ public class TutukaServiceImpl {
     //getStatus
     public Map<String, Object> status(
             String terminalId,
-            String profileNumber,
+            String cardNumber,
             String cardIdentifier,
             String hashKey,
             Date date,
@@ -433,9 +440,9 @@ public class TutukaServiceImpl {
         
         try{
 
-            log.info("Status Request Profile : {}",profileNumber);
+            log.info("Status Request Card number : {}",cardNumber);
 
-            MockCard card=findCardByProfile(profileNumber);
+            MockCard card=findCard(cardNumber);
 
             if(card==null){
 
@@ -478,22 +485,30 @@ public class TutukaServiceImpl {
 
     private MockCard findCard(String cardNumber) {
 
+        log.info("Searching for card : {}", cardNumber);
+        log.info("Cards in store : {}", MockCardStore.getInstance().getCards().size());
+
         for (MockCard card : MockCardStore.getInstance().getCards().values()) {
 
+            log.info("Stored Card : {}", card.getCardNumber());
+
             if (card.getCardNumber().equals(cardNumber)) {
+                log.info("Card Found");
                 return card;
             }
-
         }
-        
-        log.warn("Card not found : {}",cardNumber);
 
+        log.warn("Card not found : {}", cardNumber);
         return null;
     }
 
     private MockCard findCardByProfile(String profileNumber) {
 
         for (MockCard card : MockCardStore.getInstance().getCards().values()) {
+        	
+        	log.info("Searching {} against {}",
+                    profileNumber,
+                    card.getProfileNumber());
 
             if (card.getProfileNumber().equals(profileNumber)) {
                 return card;
