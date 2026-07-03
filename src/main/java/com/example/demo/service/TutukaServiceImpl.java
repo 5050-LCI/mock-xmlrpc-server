@@ -148,12 +148,6 @@ public class TutukaServiceImpl {
 	private static final Logger log =
             LoggerFactory.getLogger(TutukaServiceImpl.class);
 
-//    @Autowired
-//    private MockCardStore store;
-
-//    @Autowired
-//    private TransactionGenerator generator;
-
     public Map<String, Object> linkCard(
             String terminalId,
             String profileNumber,
@@ -289,7 +283,7 @@ public class TutukaServiceImpl {
 
     public Map<String, Object> loadCardDeductProfile(
             String terminalId,
-            String profileNumber,
+            String cardNumber,
             String cardIdentifier,
             Integer amount,
             String hashKey,
@@ -300,9 +294,9 @@ public class TutukaServiceImpl {
         
         try {
         	
-        	log.info("Deduct Request Profile : {} Amount : {}",profileNumber,amount);
+        	log.info("Deduct Request Card Number : {} Amount : {}",cardNumber,amount);
         	
-        	MockCard card = findCardByProfile(profileNumber);
+        	MockCard card = findCard(cardNumber);
         	
         	log.warn("Profile not found.");
             
