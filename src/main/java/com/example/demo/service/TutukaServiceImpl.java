@@ -420,7 +420,6 @@ public class TutukaServiceImpl {
         return response;
     }
     
-    //getStatus
     public Map<String, Object> status(
             String terminalId,
             String cardNumber,
