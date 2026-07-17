@@ -94,6 +94,8 @@ public class TransactionGenerator {
             }
 
             tx.setTransactionAmount(amount / 100.0);
+            
+            tx.setCard(card);
 
             list.add(tx);
 

@@ -8,6 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 import org.slf4j.Logger;
@@ -15,6 +16,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import com.example.demo.config.SpringContext;
 import com.example.demo.model.MockCard;
 
 //@Service
@@ -141,13 +143,30 @@ import com.example.demo.model.MockCard;
 
 
 import com.example.demo.model.MockTransaction;
+import com.example.demo.repo.MockCardRepository;
+import com.example.demo.repo.MockTransactionRepository;
+
+import jakarta.transaction.Transactional;
 
 @Service
 public class TutukaServiceImpl {
 	
 	private static final Logger log =
             LoggerFactory.getLogger(TutukaServiceImpl.class);
+	
+//	@Autowired
+//	private MockCardRepository mockCardRepository;
+//	
+//	@Autowired
+//	private MockTransactionRepository transactionRepository;
+	
+	private MockTransactionRepository transactionRepository =
+	        SpringContext.getBean(MockTransactionRepository.class);
+	
+	private MockCardRepository mockCardRepository =
+	        SpringContext.getBean(MockCardRepository.class);
 
+	@Transactional
     public Map<String, Object> linkCard(
             String terminalId,
             String profileNumber,
@@ -162,12 +181,39 @@ public class TutukaServiceImpl {
 
             log.info("LinkCard Request. Tracking Number : {}", trackingNumber);
 
-            MockCard card = MockCardStore.getInstance().getOrCreate(trackingNumber, profileNumber);
+//            MockCard card = MockCardStore.getInstance().getOrCreate(trackingNumber, profileNumber);
+            
+            Optional<MockCard> optional =
+                    mockCardRepository.findByTrackingNumber(trackingNumber);
+
+            MockCard card;
+
+            if(optional.isPresent()){
+                card = optional.get();
+            }else{
+
+                card = new MockCard();
+
+                card.setTrackingNumber(trackingNumber);
+                card.setCardNumber(RandomCardGenerator.generateCardNumber());
+                card.setProfileNumber(profileNumber);
+                card.setBalance(RandomCardGenerator.randomBalance());
+
+                Calendar cal = Calendar.getInstance();
+                cal.add(Calendar.YEAR,4);
+
+                card.setExpiryDate(
+                    new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy")
+                    .format(cal.getTime()));
+
+                card = mockCardRepository.save(card);
+            }
             
             log.info("Created Card:");
             log.info("Tracking   : {}", card.getTrackingNumber());
             log.info("Card Number: {}", card.getCardNumber());
-            log.info("Store Size : {}", MockCardStore.getInstance().getCards().size());
+//            log.info("Store Size : {}", MockCardStore.getInstance().getCards().size());
+            log.info("Store Size : {}", mockCardRepository.count());
 
             response.put("resultCode", 1);
             response.put("resultText", "SUCCESS");
@@ -190,6 +236,7 @@ public class TutukaServiceImpl {
         return response;
     }
 
+	@Transactional
     public Map<String, Object> allocateCard(
             String terminalId,
             String profileNumber,
@@ -208,7 +255,35 @@ public class TutukaServiceImpl {
 
             log.info("AllocateCard Request : {}", trackingNumber);
 
-            MockCard card = MockCardStore.getInstance().getOrCreate(trackingNumber, profileNumber);
+//            MockCard card = MockCardStore.getInstance().getOrCreate(trackingNumber, profileNumber);
+            
+            Optional<MockCard> optional =
+                    mockCardRepository.findByTrackingNumber(trackingNumber);
+
+            MockCard card;
+
+            if (optional.isPresent()) {
+
+                card = optional.get();
+
+            } else {
+
+                card = new MockCard();
+
+                card.setTrackingNumber(trackingNumber);
+                card.setCardNumber(RandomCardGenerator.generateCardNumber());
+                card.setProfileNumber(profileNumber);
+                card.setBalance(RandomCardGenerator.randomBalance());
+
+                Calendar cal = Calendar.getInstance();
+                cal.add(Calendar.YEAR, 4);
+
+                card.setExpiryDate(
+                        new SimpleDateFormat("EEE MMM dd HH:mm:ss z yyyy")
+                                .format(cal.getTime()));
+
+                card = mockCardRepository.save(card);
+            }
 
             response.put("resultCode", 1);
             response.put("resultText", "SUCCESS");
@@ -281,6 +356,7 @@ public class TutukaServiceImpl {
 		return response;
     }
 
+    @Transactional
     public Map<String, Object> loadCardDeductProfile(
             String terminalId,
             String cardNumber,
@@ -318,6 +394,8 @@ public class TutukaServiceImpl {
             }
 
             card.setBalance(card.getBalance() - amount);
+            
+            mockCardRepository.save(card);
 
             response.put("resultCode", 1);
             response.put("resultText", "SUCCESS");
@@ -343,6 +421,7 @@ public class TutukaServiceImpl {
         return response;
     }
 
+    @Transactional
     public Map<String, Object> statementByDateRange(
             String terminalId,
             String profileNumber,
@@ -359,21 +438,48 @@ public class TutukaServiceImpl {
 
             log.info("Statement Request. Tracking : {}",trackingNumber);
 
-            MockCard card = MockCardStore.getInstance().getOrCreate(trackingNumber, profileNumber);
+//            MockCard card = MockCardStore.getInstance().getOrCreate(trackingNumber, profileNumber);
+            
+            MockCard card =
+                    mockCardRepository
+                    .findByTrackingNumber(trackingNumber)
+                    .orElse(null);
 
-            List<MockTransaction> transactions;
+            if(card == null){
+
+                response.put("resultCode",0);
+                response.put("resultText","CARD_NOT_FOUND");
+
+                return response;
+            }
+
+//            List<MockTransaction> transactions;
             
             TransactionGenerator generator = new TransactionGenerator();
+            
+            List<MockTransaction> transactions =
+                    transactionRepository.findByCard(card);
 
-            if (card.getTransactions().isEmpty()) {
+            if(transactions.isEmpty()){
 
                 transactions = generator.generate(card);
 
-            } else {
+                transactionRepository.saveAll(transactions);
 
-                transactions = card.getTransactions();
-
-            }
+                mockCardRepository.save(card);
+             }
+            
+//
+//            if (card.getTransactions().isEmpty()) {
+//
+////                transactions = generator.generate(card);
+//
+//            } else {
+//
+//                transactions = card.getTransactions();
+//
+//            }
+    
 
             Object[] statement = new Object[transactions.size()];
 
@@ -476,41 +582,60 @@ public class TutukaServiceImpl {
         return response;
     }
 
-    private MockCard findCard(String cardNumber) {
+//    private MockCard findCard(String cardNumber) {
+//
+//        log.info("Searching for card : {}", cardNumber);
+//        log.info("Cards in store : {}", MockCardStore.getInstance().getCards().size());
+//
+//        for (MockCard card : MockCardStore.getInstance().getCards().values()) {
+//
+//            log.info("Stored Card : {}", card.getCardNumber());
+//
+//            if (card.getCardNumber().equals(cardNumber)) {
+//                log.info("Card Found");
+//                return card;
+//            }
+//        }
+//
+//        log.warn("Card not found : {}", cardNumber);
+//        return null;
+//    }
+    
+    private MockCard findCard(String cardNumber){
+    	
+      log.info("Searching for card : {}", cardNumber);
 
-        log.info("Searching for card : {}", cardNumber);
-        log.info("Cards in store : {}", MockCardStore.getInstance().getCards().size());
+        return mockCardRepository
+                .findByCardNumber(cardNumber)
+                .orElse(null);
+    }
+    
+    private MockCard findCardByProfile(String profileNumber){
+    	
+    	log.info("Searching ByProfile : {} ", profileNumber);
 
-        for (MockCard card : MockCardStore.getInstance().getCards().values()) {
+        return mockCardRepository
+                .findByProfileNumber(profileNumber)
+                .orElse(null);
 
-            log.info("Stored Card : {}", card.getCardNumber());
-
-            if (card.getCardNumber().equals(cardNumber)) {
-                log.info("Card Found");
-                return card;
-            }
-        }
-
-        log.warn("Card not found : {}", cardNumber);
-        return null;
     }
 
-    private MockCard findCardByProfile(String profileNumber) {
-
-        for (MockCard card : MockCardStore.getInstance().getCards().values()) {
-        	
-        	log.info("Searching {} against {}",
-                    profileNumber,
-                    card.getProfileNumber());
-
-            if (card.getProfileNumber().equals(profileNumber)) {
-                return card;
-            }
-
-        }
-        
-        log.warn("Profile not found : {}",profileNumber);
-        
-        return null;
-    }
+//    private MockCard findCardByProfile(String profileNumber) {
+//
+//        for (MockCard card : MockCardStore.getInstance().getCards().values()) {
+//        	
+//        	log.info("Searching {} against {}",
+//                    profileNumber,
+//                    card.getProfileNumber());
+//
+//            if (card.getProfileNumber().equals(profileNumber)) {
+//                return card;
+//            }
+//
+//        }
+//        
+//        log.warn("Profile not found : {}",profileNumber);
+//        
+//        return null;
+//    }
 }
