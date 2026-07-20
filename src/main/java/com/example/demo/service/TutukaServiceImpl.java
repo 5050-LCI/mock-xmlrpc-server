@@ -165,6 +165,9 @@ public class TutukaServiceImpl {
 	
 	private MockCardRepository mockCardRepository =
 	        SpringContext.getBean(MockCardRepository.class);
+	
+	private TransactionGenerator transactionGenerator =
+	        SpringContext.getBean(TransactionGenerator.class);
 
 	@Transactional
     public Map<String, Object> linkCard(
@@ -446,6 +449,7 @@ public class TutukaServiceImpl {
                     .orElse(null);
 
             if(card == null){
+            	log.warn("Statement failed. Card not found for tracking: {}", trackingNumber);
 
                 response.put("resultCode",0);
                 response.put("resultText","CARD_NOT_FOUND");
@@ -455,19 +459,28 @@ public class TutukaServiceImpl {
 
 //            List<MockTransaction> transactions;
             
-            TransactionGenerator generator = new TransactionGenerator();
+//            TransactionGenerator generator = new TransactionGenerator();
             
             List<MockTransaction> transactions =
                     transactionRepository.findByCard(card);
 
             if(transactions.isEmpty()){
+            	
+            	log.info("No transactions found. Generating transactions.");
 
-                transactions = generator.generate(card);
+                transactions = transactionGenerator.generate(card);
 
                 transactionRepository.saveAll(transactions);
 
+                // Generator changes card balance, so persist new balance
                 mockCardRepository.save(card);
+                
+                log.info("{} transactions generated and saved.", transactions.size());
+             } else {
+
+                 log.info("{} existing transactions found.", transactions.size());
              }
+
             
 //
 //            if (card.getTransactions().isEmpty()) {

@@ -95,13 +95,14 @@ public class TransactionGenerator {
 
             tx.setTransactionAmount(amount / 100.0);
             
+            // This sets mock_transaction.card_id
             tx.setCard(card);
 
             list.add(tx);
 
         }
 
-        card.getTransactions().addAll(list);
+//        card.getTransactions().addAll(list);
 
         return list;
 
